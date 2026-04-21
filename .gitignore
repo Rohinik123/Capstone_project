@@ -1,8 +1,10 @@
-# Secrets — never commit (any directory)
-**/.env
+# Environment & secrets — never commit
 .env
+**/.env
 backend/.env
 frontend/.env.local
+frontend/.env.development.local
+frontend/.env.test.local
 frontend/.env.production.local
 
 # Allow only example templates
@@ -11,8 +13,11 @@ frontend/.env.production.local
 # Dependencies
 node_modules/
 
-# Build outputs
+# Frontend (Create React App) — build, test, Yarn PnP
 frontend/build/
+frontend/coverage/
+frontend/.pnp
+frontend/.pnp.js
 
 # OS / logs
 .DS_Store

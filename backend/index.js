@@ -17,6 +17,10 @@ if (extraDns && String(extraDns).trim()) {
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
+
+// Fail fast if a query runs while disconnected (avoids 10s "buffering timed out").
+mongoose.set("bufferCommands", false);
+
 const userRoutes = require("./routes/userRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const messageRoutes = require("./routes/messageRoutes");
@@ -77,6 +81,17 @@ mongoose
 
     const server = app.listen(PORT, () => {
       console.log(`Server started running on ${PORT}`);
+    });
+
+    server.on("error", (err) => {
+      if (err.code === "EADDRINUSE") {
+        console.error(
+          `Port ${PORT} is already in use. Close the other terminal running the API, or run: netstat -ano | findstr :${PORT}  then taskkill /PID <pid> /F`
+        );
+      } else {
+        console.error(err);
+      }
+      process.exit(1);
     });
 
     const io = require("socket.io")(server, {
