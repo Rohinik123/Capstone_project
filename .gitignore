@@ -1,9 +1,12 @@
-# Secrets — never commit
+# Secrets — never commit (any directory)
+**/.env
 .env
-.env.*
-!.env.example
 backend/.env
 frontend/.env.local
+frontend/.env.production.local
+
+# Allow only example templates
+!**/.env.example
 
 # Dependencies
 node_modules/
