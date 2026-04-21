@@ -21,6 +21,7 @@ import { ChatState } from "../../Context/ProviderChat";
 import UserBadgeItem from "../UserAvatar/UserBadgeItem";
 import axios from "axios";
 import UserListItem from "../UserAvatar/UserListItem";
+import { API_URL } from "../../config/api";
 
 const UpdateGroupChatModal = ({ fetchAgain, setFetchAgain, fetchMessages }) => {
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -64,7 +65,7 @@ const UpdateGroupChatModal = ({ fetchAgain, setFetchAgain, fetchMessages }) => {
         },
       };
       const { data } = await axios.put(
-        "https://capstone-server-0dtj.onrender.com/api/chat/groupadd",
+        `${API_URL}/api/chat/groupadd`,
         {
           chatId: selectedChat._id,
           userId: user1._id,
@@ -108,7 +109,7 @@ const UpdateGroupChatModal = ({ fetchAgain, setFetchAgain, fetchMessages }) => {
         },
       };
       const { data } = await axios.put(
-        "https://capstone-server-0dtj.onrender.com/api/chat/groupremove",
+        `${API_URL}/api/chat/groupremove`,
         {
           chatId: selectedChat._id,
           userId: user1._id,
@@ -142,7 +143,7 @@ const UpdateGroupChatModal = ({ fetchAgain, setFetchAgain, fetchMessages }) => {
         headers: { Authorization: `Bearer ${user.token}` },
       };
       const { data } = await axios.put(
-        "https://capstone-server-0dtj.onrender.com/api/chat/rename",
+        `${API_URL}/api/chat/rename`,
         {
           chatId: selectedChat._id,
           chatName: groupChatName,
@@ -180,7 +181,7 @@ const UpdateGroupChatModal = ({ fetchAgain, setFetchAgain, fetchMessages }) => {
         },
       };
       const { data } = await axios.get(
-        `https://capstone-server-0dtj.onrender.com/api/user?search=${search}`,
+        `${API_URL}/api/user?search=${search}`,
         config
       );
       console.log(data);

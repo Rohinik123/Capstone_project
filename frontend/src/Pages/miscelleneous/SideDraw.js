@@ -27,6 +27,7 @@ import { useNavigate } from "react-router-dom";
 import { useDisclosure } from "@chakra-ui/hooks";
 import ChatLoading from "./ChatLoading";
 import axios from "axios";
+import { API_URL } from "../../config/api";
 
 import UserListItem from "../UserAvatar/UserListItem";
 import { getSender } from "../../config/ChatLogics";
@@ -79,7 +80,7 @@ const SideDraw = () => {
       };
 
       const { data } = await axios.get(
-        `https://capstone-server-0dtj.onrender.com/api/user?search=${search}`,
+        `${API_URL}/api/user?search=${search}`,
         config
       );
 
@@ -108,7 +109,7 @@ const SideDraw = () => {
         },
       };
       const { data } = await axios.post(
-        "https://capstone-server-0dtj.onrender.com/api/chat",
+        `${API_URL}/api/chat`,
         { userId },
         config
       );

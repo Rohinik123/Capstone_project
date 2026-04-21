@@ -11,6 +11,7 @@ import {
 import { useToast } from "@chakra-ui/react";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { API_URL } from "../../config/api";
 
 const Signup = () => {
   const [show, setShow] = useState(false);
@@ -98,7 +99,7 @@ const Signup = () => {
         headers: { "Content-type": "application/json" },
       };
       const { data } = await axios.post(
-        "https://capstone-server-0dtj.onrender.com/api/user",
+        `${API_URL}/api/user`,
         { name, email, password, pic },
         config
       );

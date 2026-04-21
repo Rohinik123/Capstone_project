@@ -9,6 +9,7 @@ import {
 import { Input, InputGroup, InputRightElement } from "@chakra-ui/input";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { API_URL } from "../../config/api";
 
 const Login = () => {
   const [show, setShow] = useState(false);
@@ -45,7 +46,7 @@ const Login = () => {
       };
 
       const { data } = await axios.post(
-        "https://capstone-server-0dtj.onrender.com/api/user/login",
+        `${API_URL}/api/user/login`,
         { email, password },
         config
       );

@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "node index.js",
+    "start": "node index.js",
+    "dev": "nodemon index.js",
     "build": "npm i"
   },
   "author": "Rohini K",
@@ -17,7 +18,7 @@
     "express-async-handler": "^1.2.0",
     "jsonwebtoken": "^9.0.0",
     "mongoose": "^7.1.0",
-    "nodemon": "^2.0.22",
+    "nodemon": "^3.1.14",
     "socket.io": "^4.6.1"
   }
 }

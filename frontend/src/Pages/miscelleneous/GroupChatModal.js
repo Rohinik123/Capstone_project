@@ -18,6 +18,7 @@ import { ChatState } from "../../Context/ProviderChat";
 import UserBadgeItem from "../UserAvatar/UserBadgeItem";
 import UserListItem from "../UserAvatar/UserListItem";
 import axios from "axios";
+import { API_URL } from "../../config/api";
 
 const GroupChatModal = ({ children }) => {
   const { isOpen, onOpen, onClose } = useDisclosure();
@@ -44,7 +45,7 @@ const GroupChatModal = ({ children }) => {
         },
       };
       const { data } = await axios.get(
-        `https://rohini-backend-5sds.onrender.com/api/user?search=${search}`,
+        `${API_URL}/api/user?search=${search}`,
         config
       );
 
@@ -81,7 +82,7 @@ const GroupChatModal = ({ children }) => {
         },
       };
       const { data } = await axios.post(
-        `https://capstone-server-0dtj.onrender.com/api/chat/group`,
+        `${API_URL}/api/chat/group`,
         {
           name: groupChatName,
           users: JSON.stringify(selectedUsers.map((u) => u._id)),

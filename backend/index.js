@@ -1,13 +1,27 @@
+const path = require("path");
+require("dotenv").config({ path: path.join(__dirname, ".env") });
+
+const dns = require("dns");
+dns.setDefaultResultOrder("ipv4first");
+
+const extraDns = process.env.MONGODB_DNS_SERVERS;
+if (extraDns && String(extraDns).trim()) {
+  dns.setServers(
+    String(extraDns)
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean)
+  );
+}
+
 const express = require("express");
 const cors = require("cors");
 const mongoose = require("mongoose");
-const { chats } = require("./data/data");
-require("dotenv").config();
 const userRoutes = require("./routes/userRoutes");
 const chatRoutes = require("./routes/chatRoutes");
 const messageRoutes = require("./routes/messageRoutes");
 const { notFound, errorHandler } = require("./middleware/errorMiddleware");
-const { Socket } = require("socket.io");
+const { requireDb } = require("./middleware/dbMiddleware");
 
 const app = express();
 
@@ -19,6 +33,15 @@ app.get("/", (req, res) => {
   res.send("Api is running on server");
 });
 
+app.get("/api/health", (req, res) => {
+  const ok = mongoose.connection.readyState === 1;
+  res.status(ok ? 200 : 503).json({
+    ok,
+    db: ok ? "connected" : "disconnected",
+  });
+});
+
+app.use("/api", requireDb);
 app.use("/api/user", userRoutes);
 app.use("/api/chat", chatRoutes);
 app.use("/api/message", messageRoutes);
@@ -28,64 +51,89 @@ app.use(errorHandler);
 
 const PORT = process.env.PORT || 8001;
 
-const server = app.listen(
-  PORT,
-  console.log(`Server started running on ${PORT}`)
-);
+const mongoUri = (process.env.MONGO_URI || "").trim();
+if (!mongoUri) {
+  console.error(
+    "FATAL: MONGO_URI is not set. Add it to .env (local) or your host's environment (e.g. Render)."
+  );
+  process.exit(1);
+}
 
-//connection to mongodb atlas
+if (!process.env.JWT_SECRET || !String(process.env.JWT_SECRET).trim()) {
+  console.error(
+    "FATAL: JWT_SECRET is not set. Add it to .env or your host environment."
+  );
+  process.exit(1);
+}
+
 mongoose
-  .connect(process.env.MONGO_URI, {
-    useNewUrlParser: true,
-    useUnifiedTopology: true,
+  .connect(mongoUri, {
+    serverSelectionTimeoutMS: 20000,
+    maxPoolSize: 10,
+    family: 4,
   })
   .then(() => {
     console.log("mongodb connected to atlas successfully");
-  })
-  // .then(() => {
-  //   const server = app.listen(
-  //     PORT,
-  //     console.log(`Server started running on ${PORT}`)
-  //   );
-  // })
-  .catch((error) => console.log(`${error} did not connect`));
 
-const io = require("socket.io")(server, {
-  pingTimeout: 60000,
-  cors: {
-    origin: "*" || "http://localhost:3000",
-  },
-});
-
-io.on("connection", (Socket) => {
-  console.log("connected to socket.io");
-
-  Socket.on("setup", (userData) => {
-    Socket.join(userData._id);
-    console.log(userData._id);
-    Socket.emit("connected");
-  });
-
-  Socket.on("join chat", (room) => {
-    Socket.join(room);
-    console.log("User Joined Room: " + room);
-  });
-
-  Socket.on("typing", (room) => Socket.in(room).emit("typing"));
-  Socket.on("stop typing", (room) => Socket.in(room).emit("stop typing"));
-
-  Socket.on("new message", (newMessageRecieved) => {
-    let chat = newMessageRecieved.chat;
-    if (!chat.users) return console.log("chat.users not defined");
-
-    chat.users.forEach((user) => {
-      if (user._id == newMessageRecieved.sender._id) return;
-      Socket.in(user._id).emit("message recieved", newMessageRecieved);
+    const server = app.listen(PORT, () => {
+      console.log(`Server started running on ${PORT}`);
     });
-  });
 
-  Socket.off("setup", () => {
-    console.log("User Disconnected");
-    Socket.leave(userData._id);
+    const io = require("socket.io")(server, {
+      pingTimeout: 60000,
+      cors: {
+        origin: "*" || "http://localhost:3000",
+      },
+    });
+
+    io.on("connection", (Socket) => {
+      console.log("connected to socket.io");
+
+      Socket.on("setup", (userData) => {
+        const uid = String(userData._id);
+        Socket.join(uid);
+        console.log(uid);
+        Socket.emit("connected");
+      });
+
+      Socket.on("join chat", (room) => {
+        Socket.join(String(room));
+        console.log("User Joined Room: " + room);
+      });
+
+      Socket.on("typing", (room) => Socket.to(String(room)).emit("typing"));
+      Socket.on("stop typing", (room) =>
+        Socket.to(String(room)).emit("stop typing")
+      );
+
+      Socket.on("new message", (newMessageRecieved) => {
+        const chat = newMessageRecieved.chat;
+        if (!chat?.users) return console.log("chat.users not defined");
+
+        const senderId = String(newMessageRecieved.sender._id);
+        chat.users.forEach((u) => {
+          if (String(u._id) === senderId) return;
+          io.to(String(u._id)).emit("message recieved", newMessageRecieved);
+        });
+      });
+    });
+  })
+  .catch((error) => {
+    console.error("MongoDB connection failed:", error.message);
+    console.error(
+      "Check: Atlas cluster is running, password in URI is URL-encoded, Network Access allows connections (e.g. 0.0.0.0/0)."
+    );
+    if (String(error.message).includes("querySrv")) {
+      console.error(
+        [
+          "SRV/DNS hint: querySrv ECONNREFUSED is a DNS resolution failure (before TLS/TCP to MongoDB).",
+          "Try: (1) MONGODB_DNS_SERVERS=8.8.8.8,1.1.1.1 in .env",
+          "     (2) NODE_OPTIONS=--dns-result-order=ipv4first when starting node",
+          "     (3) Use a standard mongodb:// URI (no +srv) from Atlas: Connect → Drivers → copy seed list; add ssl=true&replicaSet=<name>&authSource=admin",
+          "     (4) Test DNS: nslookup -type=SRV _mongodb._tcp.<your-cluster-host>",
+          "     (5) Firewall/VPN: allow Node; try another network or mobile hotspot",
+        ].join("\n")
+      );
+    }
+    process.exit(1);
   });
-});

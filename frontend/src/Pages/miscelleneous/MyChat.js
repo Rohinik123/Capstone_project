@@ -8,6 +8,7 @@ import { getSender } from "../../config/ChatLogics";
 import GroupChatModal from "./GroupChatModal";
 import { AddIcon } from "@chakra-ui/icons";
 import axios from "axios";
+import { API_URL } from "../../config/api";
 
 const MyChat = ({ fetchAgain }) => {
   const [loggedUser, setLoggedUser] = useState();
@@ -26,7 +27,7 @@ const MyChat = ({ fetchAgain }) => {
       };
 
       const { data } = await axios.get(
-        "https://capstone-server-0dtj.onrender.com/api/chat",
+        `${API_URL}/api/chat`,
         config
       );
       // console.log(data);

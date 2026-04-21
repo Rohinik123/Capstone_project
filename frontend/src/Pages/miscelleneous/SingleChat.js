@@ -17,8 +17,8 @@ import { IconButton } from "@chakra-ui/button";
 import axios from "axios";
 import ScrollableChat from "./ScrollableChat";
 import io from "socket.io-client";
+import { API_URL } from "../../config/api";
 
-const ENDPOINT = "https://capstone-server-0dtj.onrender.com";
 var Socket, selectedChatCompare;
 
 const SingleChat = ({ fetchAgain, setFetchAgain }) => {
@@ -29,8 +29,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   const [typing, setTyping] = useState(false);
   const [istyping, setIsTyping] = useState(false);
 
-  const { user, selectedChat, setSelectedChat, notification, setNotification } =
-    ChatState();
+  const { user, selectedChat, setSelectedChat, setNotification } = ChatState();
   const toast = useToast();
 
   const fetchMessages = async () => {
@@ -45,14 +44,18 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
       setLoading(true);
 
       const { data } = await axios.get(
-        `https://capstone-server-0dtj.onrender.com/api/message/${selectedChat._id}`,
+        `${API_URL}/api/message/${selectedChat._id}`,
         config
       );
 
       setMessage(data);
       setLoading(false);
-      Socket.emit("join chat", selectedChat._id);
+      const room = String(selectedChat._id);
+      const joinRoom = () => Socket?.emit("join chat", room);
+      if (Socket?.connected) joinRoom();
+      else Socket?.once("connect", joinRoom);
     } catch (error) {
+      setLoading(false);
       toast({
         title: "Error Occured",
         description: "Failed to Load the Message",
@@ -65,13 +68,48 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
   };
 
   useEffect(() => {
-    Socket = io(ENDPOINT);
+    if (!user?._id) return;
+
+    Socket = io(API_URL);
     Socket.emit("setup", user);
     Socket.on("connected", () => setSocketConnected(true));
     Socket.on("typing", () => setIsTyping(true));
     Socket.on("stop typing", () => setIsTyping(false));
-    // eslint-disable-next-line
-  }, []);
+
+    const onMessageReceived = (newMessageRecieved) => {
+      const rawChat = newMessageRecieved.chat;
+      const incomingChatId = String(
+        rawChat && typeof rawChat === "object" ? rawChat._id : rawChat
+      );
+      const openChatId = selectedChatCompare
+        ? String(selectedChatCompare._id)
+        : "";
+      if (!selectedChatCompare || openChatId !== incomingChatId) {
+        setNotification((prev) => {
+          if (
+            prev.some(
+              (n) => String(n._id) === String(newMessageRecieved._id)
+            )
+          )
+            return prev;
+          return [newMessageRecieved, ...prev];
+        });
+        setFetchAgain((f) => !f);
+      } else {
+        setMessage((prev) => [...prev, newMessageRecieved]);
+      }
+    };
+
+    Socket.on("message recieved", onMessageReceived);
+
+    return () => {
+      if (!Socket) return;
+      Socket.off("message recieved", onMessageReceived);
+      Socket.disconnect();
+      Socket = undefined;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?._id]);
 
   useEffect(() => {
     fetchMessages();
@@ -80,27 +118,10 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     // eslint-disable-next-line
   }, [selectedChat]);
 
-  // console.log(notification, "------------");
-
-  useEffect(() => {
-    Socket.on("message recieved", (newMessageRecieved) => {
-      if (
-        !selectedChatCompare ||
-        selectedChatCompare._id !== newMessageRecieved.chat._id
-      ) {
-        if (!notification.includes(newMessageRecieved)) {
-          setNotification([newMessageRecieved, ...notification]);
-          setFetchAgain(!fetchAgain);
-        }
-      } else {
-        setMessage([...message, newMessageRecieved]);
-      }
-    });
-  });
-
   const sendMessage = async (event) => {
     if (event.key === "Enter" && newMessage) {
-      Socket.emit("stop typing", selectedChat._id);
+      if (!Socket) return;
+      Socket.emit("stop typing", String(selectedChat._id));
 
       try {
         const config = {
@@ -113,7 +134,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         setNewMessage("");
 
         const { data } = await axios.post(
-          "https://capstone-server-0dtj.onrender.com/api/message",
+          `${API_URL}/api/message`,
           {
             content: newMessage,
             chatId: selectedChat._id,
@@ -123,7 +144,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         // console.log(data);
 
         Socket.emit("new message", data);
-        setMessage([...message, data]);
+        setMessage((prev) => [...prev, data]);
       } catch (error) {
         toast({
           title: "Error Occured!",
@@ -140,11 +161,11 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     setNewMessage(e.target.value);
 
     //Typing Indicator logic
-    if (!socketConnected) return;
+    if (!socketConnected || !Socket) return;
 
     if (!typing) {
       setTyping(true);
-      Socket.emit("typing", selectedChat._id);
+      Socket.emit("typing", String(selectedChat._id));
     }
     let lastTypingTime = new Date().getTime();
     let timerLength = 3000;
@@ -153,7 +174,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
       let timeDiff = timeNow - lastTypingTime;
 
       if (timeDiff >= timerLength && typing) {
-        Socket.emit("stop typing", selectedChat._id);
+        Socket.emit("stop typing", String(selectedChat._id));
         setTyping(false);
       }
     }, timerLength);
